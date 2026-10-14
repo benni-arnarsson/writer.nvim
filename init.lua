@@ -60,6 +60,33 @@ require("lazy").setup({
   { "catppuccin/nvim", name = "catppuccin", lazy = true },
   { "folke/zen-mode.nvim", cmd = "ZenMode" },
   { "junegunn/limelight.vim", cmd = "Limelight" },
+  {
+    "justinmk/vim-sneak",
+    lazy = false,
+    dependencies = { { "tpope/vim-repeat", lazy = false } },
+    init = function()
+      -- mini.jump2d handles explicit label jumps; Sneak stays a two-character motion.
+      vim.g["sneak#label"] = 0
+    end,
+  },
+  {
+    "nvim-mini/mini.jump2d",
+    version = "*",
+    opts = {
+      mappings = { start_jumping = "" },
+      allowed_windows = { current = true, not_current = false },
+    },
+    keys = {
+      { "<leader>jl", function()
+        local jump = require("mini.jump2d")
+        jump.start(jump.builtin_opts.line_start)
+      end, mode = { "n", "x" }, desc = "Jump to visible line start" },
+      { "<leader>jw", function()
+        local jump = require("mini.jump2d")
+        jump.start(jump.builtin_opts.word_start)
+      end, mode = { "n", "x" }, desc = "Jump to visible word start" },
+    },
+  },
   { "preservim/vim-markdown", ft = { "markdown" }, config = function() vim.g.vim_markdown_folding_disabled = 1 vim.g.vim_markdown_new_list_item_indent = 0 end },
   {
     "iamcco/markdown-preview.nvim",
@@ -102,6 +129,7 @@ require("lualine").setup({ options = { theme = "tokyonight", section_separators 
 require("telescope").setup({ defaults = { layout_strategy = "vertical", layout_config = { width = 0.9 } } })
 vim.keymap.set("n", "<leader>f", ":Telescope find_files<CR>", { silent = true })
 vim.keymap.set("n", "<leader>g", ":Telescope live_grep<CR>", { silent = true })
+map("n", "<leader>/", "<cmd>Telescope current_buffer_fuzzy_find<CR>", { silent = true, desc = "Search current buffer" })
 
 vim.keymap.set("n", "<leader>z", ":ZenMode<CR>:Limelight<CR>", { silent = true })
 
@@ -131,6 +159,12 @@ vim.opt.scrolloff = 999
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "markdown",
   callback = function()
+    -- Uncounted movement follows wrapped rows; counts still address file lines.
+    map({ "n", "x" }, "j", function() return vim.v.count == 0 and "gj" or "j" end,
+      { buffer = true, expr = true, silent = true, desc = "Down wrapped row (file lines with count)" })
+    map({ "n", "x" }, "k", function() return vim.v.count == 0 and "gk" or "k" end,
+      { buffer = true, expr = true, silent = true, desc = "Up wrapped row (file lines with count)" })
+    map("n", "<leader>jt", "<cmd>Toc<CR>", { buffer = true, silent = true, desc = "Markdown table of contents" })
     vim.cmd("ZenMode")
     vim.cmd("Limelight")
   end,

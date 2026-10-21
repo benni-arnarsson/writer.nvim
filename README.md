@@ -7,13 +7,39 @@ buffers automatically open Zen Mode and Limelight. Space is the leader key:
 
 ## Setup
 
-Place this configuration in `~/.config/nvim` and start Neovim. Lazy bootstraps
-itself and installs the configured plugins; run `:Lazy install` if needed.
+Keep this repository in one working directory and link `~/.config/nvim` to it.
+For a fresh setup on either Mac, use the current account's home directory:
+
+```sh
+writer_repo="$HOME/code/github.com/Benni-Math/writer.nvim"
+mkdir -p "$(dirname "$writer_repo")" "$HOME/.config"
+git clone git@github.com:benni-arnarsson/writer.nvim.git "$writer_repo"
+# Preserve an existing config first; do not overwrite an existing backup.
+# mv "$HOME/.config/nvim" "$HOME/.config/nvim.backup-YYYYMMDD-HHMMSS"
+ln -s "$writer_repo" "$HOME/.config/nvim"
+nvim
+```
+
+If the checkout already exists, skip cloning and link that checkout. On this Mac,
+the old active checkout is preserved at a timestamped `~/.config/nvim.backup-*`
+path. Its latest navigation changes and the previous keyboard improvements are
+merged into the canonical checkout. A safety stash in that repo retains its
+pre-unification working tree. Neither plugin data, sessions, undo, nor file marks
+are moved by the config-directory change.
+
+Lazy bootstraps itself and installs the configured plugins; run `:Lazy install`
+if needed.
 The checked-in `lazy-lock.json` pins plugin versions; `:Lazy restore` restores
 those versions. New plugin installations require Git and network access.
 
-Install `ripgrep` (`rg`) for Telescope's project grep, `yazi` for the file
-manager, and Node.js/npm for the Markdown preview plugin's build. On macOS:
+The Mac profiles in writer.nix set `modules.programs.nvim.manageConfig = false`:
+Nix installs Neovim and its tools; this checkout and Lazy own the config and
+plugins. Linux keeps Home Manager's equivalent navigation configuration with
+`manageConfig = true`. The standalone checkout has no runtime dependency on
+writer.nix or rippling.nvim. Work navigation is unchanged by this unification.
+
+Outside Nix, install `ripgrep` (`rg`) for Telescope's project grep, `yazi` for the
+file manager, and Node.js/npm for the Markdown preview plugin's build. On macOS:
 
 ```sh
 brew install neovim ripgrep yazi node
@@ -25,15 +51,18 @@ brew install neovim ripgrep yazi node
 | --- | --- |
 | Space `w` / Space `q` | Save / quit the window |
 | Space Space | Switch to the previous file |
-| Space `f` | Telescope file-name search (`find_files`) |
-| Space `g` | Telescope project text search (`live_grep`, requires `rg`) |
-| Space `/` | Telescope fuzzy search of lines in the current buffer |
+| Space `ff` / Space `fg` / Space `fw` | Find project files / project text / cursor word |
+| Space `fb` / Space `fr` | Open buffers / recent project files |
+| Space `f/` / Space `/` | Fuzzy search of current-buffer lines |
+| Space `f.` / Space `fh` / Space `fc` | Resume search / help / commands |
+| Space `fa` / Space `fm` | Toggle a project file mark / browse marks |
+| Space `1` through Space `4` | Jump directly to marked project files |
 | Space `jl` / Space `jw` | Label visible file-line starts / word starts |
 | Space `jt` | Markdown heading table of contents |
 | Space `e` / Space `E` | Yazi at the current file / working directory |
 | Ctrl-Up | Resume Yazi |
 | Space `mp` | Toggle Markdown browser preview |
-| Space `z` | Zen Mode and Limelight commands |
+| Space `z` | Toggle writing focus (Zen Mode and Limelight together) |
 | Space `tt` | Open a terminal split |
 | Ctrl-h/j/k/l | Move between windows |
 | `jk` in Insert mode | Return to Normal mode |
@@ -42,12 +71,22 @@ brew install neovim ripgrep yazi node
 | `:WordCount` | Print the word count |
 | `:Theme tokyonight`, `:Theme gruvbox`, `:Theme catppuccin` | Change theme |
 
-Telescope searches from Neovim's working directory (`:pwd`). Space `f` filters
-file names; Space `g` finds text inside files. Type your query, select with
-Ctrl-n/Ctrl-p, and press Enter to open the result. Esc leaves Insert mode in
-the picker; a second Esc closes it. Space `/` is useful when you remember a
-few words from a paragraph anywhere in the current document: its results are
+Pause after Space or Space `f` to see WhichKey's available shortcuts. Old
+Space `f` and Space `g` become Space `ff` and Space `fg`, matching the work search
+menu. Space `/` remains a short alias for Space `f/`.
+
+Project search and Grapple file marks use the nearest Git root, otherwise the
+nearest book ancestor containing `metadata.yaml`, otherwise the working directory.
+Recent-file search stays within that root. Hidden files are included, ignore
+files are respected, and `.git` is excluded. Type to filter, use Ctrl-j/Ctrl-k to
+select, and Enter to open; Esc closes the picker. Space `/` is useful when you
+remember a few words from a paragraph anywhere in the document: its results are
 file lines, so a whole single-line paragraph is one result.
+
+Spelling, wrapping, and concealment apply to Markdown rather than code buffers.
+Undo persists across restarts. Focus opens automatically for Markdown without
+toggling off when another chapter opens; Space `z` toggles it manually. Theme
+selection and standalone session restoration remain available.
 
 ## Moving through single-line paragraphs
 
@@ -148,7 +187,7 @@ regular expressions; `/\Vliteral text` uses very-nomagic matching (backslashes
 still have special meaning). Esc clears highlighting.
 
 Space `/` lists fuzzy paragraph/line matches in this document, including
-offscreen text. Space `g` searches across project files; Space `f` locates a
+offscreen text. Space `fg` searches across project files; Space `ff` locates a
 document by its name. See `:help /`, `:help star`, and
 `:help telescope.builtin.current_buffer_fuzzy_find()`.
 
@@ -167,6 +206,10 @@ provides heading navigation in Markdown buffers:
 In the TOC location-list window, select a heading and press Enter to jump;
 `:lclose` closes the outline. These shortcuts are plugin-provided Markdown
 heading motions, rather than native Vim section motions.
+
+Use Grapple for a chapter/outline/research shortlist: Space `fa` toggles the
+current file, Space `fm` lists marks, and Space `1` through Space `4` jump directly.
+Marks stay separate between books or repositories and persist across restarts.
 
 Set a bookmark with `ma`, then return to its exact position with backtick
 followed by `a`; `'a` returns to the line's first nonblank character. Uppercase
@@ -207,3 +250,14 @@ Flash later, use separate keys and disable its character-motion overrides to
 avoid collisions with this setup.
 
 Reference: [Neovim motion documentation](https://neovim.io/doc/user/motion/).
+
+## Verify an update
+
+Run `:Lazy install`, `:Lazy restore`, and `:checkhealth`. Check Sneak, its operator
+motions and dot-repeat; label jumps in Normal/Visual modes and their cancellation;
+native Enter; wrapped `j/k`, counted movement, and operators on a long paragraph;
+heading motions and the TOC; both buffer searches and root-aware project search.
+Open another chapter to check focus stays open, then a code file to check prose
+options and mappings do not leak. Test marks in two projects and restart to check
+mark and undo persistence. Linux uses the same writing-navigation Lua module,
+with plugins supplied by Home Manager instead of Lazy.

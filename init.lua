@@ -6,8 +6,8 @@
 
 vim.opt.number = false
 vim.opt.relativenumber = false
-vim.opt.wrap = true
-vim.opt.linebreak = true
+vim.opt.wrap = false
+vim.opt.linebreak = false
 vim.opt.scrolloff = 5
 vim.opt.colorcolumn = ""
 vim.opt.cursorline = false
@@ -16,16 +16,20 @@ vim.opt.laststatus = 2
 vim.opt.showcmd = false
 vim.opt.hidden = true
 vim.opt.termguicolors = true
-vim.opt.spell = true
+vim.opt.spell = false
 vim.opt.spelllang = { 'en_us' }
 vim.opt.mouse = "a"
 vim.opt.clipboard = "unnamedplus"
-vim.opt.conceallevel = 2
+vim.opt.conceallevel = 0
 vim.opt.textwidth = 0
 vim.opt.wrapmargin = 0
 vim.opt.signcolumn = "no"
 
 vim.g.mapleader = " "
+vim.g.maplocalleader = " "
+-- Keep Sneak literal; labels belong to explicit mini.jump2d jumps.
+vim.g["sneak#label"] = 0
+vim.g["sneak#use_ic_scs"] = 0
 local map = vim.keymap.set
 
 map("n", "<Esc>", "<cmd>nohlsearch<CR>", { silent = true, desc = "Clear search highlight" })
@@ -58,35 +62,16 @@ require("lazy").setup({
   { "folke/tokyonight.nvim", lazy = false, priority = 1000, config = function() vim.cmd("colorscheme tokyonight") end },
   { "ellisonleao/gruvbox.nvim", lazy = true },
   { "catppuccin/nvim", name = "catppuccin", lazy = true },
-  { "folke/zen-mode.nvim", cmd = "ZenMode" },
-  { "junegunn/limelight.vim", cmd = "Limelight" },
+  { "folke/zen-mode.nvim", lazy = false },
+  { "folke/which-key.nvim", lazy = false },
+  { "cbochs/grapple.nvim", lazy = false },
   {
     "justinmk/vim-sneak",
     lazy = false,
     dependencies = { { "tpope/vim-repeat", lazy = false } },
-    init = function()
-      -- mini.jump2d handles explicit label jumps; Sneak stays a two-character motion.
-      vim.g["sneak#label"] = 0
-    end,
   },
-  {
-    "nvim-mini/mini.jump2d",
-    version = "*",
-    opts = {
-      mappings = { start_jumping = "" },
-      allowed_windows = { current = true, not_current = false },
-    },
-    keys = {
-      { "<leader>jl", function()
-        local jump = require("mini.jump2d")
-        jump.start(jump.builtin_opts.line_start)
-      end, mode = { "n", "x" }, desc = "Jump to visible line start" },
-      { "<leader>jw", function()
-        local jump = require("mini.jump2d")
-        jump.start(jump.builtin_opts.word_start)
-      end, mode = { "n", "x" }, desc = "Jump to visible word start" },
-    },
-  },
+  { "nvim-mini/mini.jump2d", version = "*", lazy = false },
+  { "junegunn/limelight.vim", cmd = "Limelight" },
   { "preservim/vim-markdown", ft = { "markdown" }, config = function() vim.g.vim_markdown_folding_disabled = 1 vim.g.vim_markdown_new_list_item_indent = 0 end },
   {
     "iamcco/markdown-preview.nvim",
@@ -126,12 +111,22 @@ require("lazy").setup({
 
 require("lualine").setup({ options = { theme = "tokyonight", section_separators = "", component_separators = "" } })
 
-require("telescope").setup({ defaults = { layout_strategy = "vertical", layout_config = { width = 0.9 } } })
-vim.keymap.set("n", "<leader>f", ":Telescope find_files<CR>", { silent = true })
-vim.keymap.set("n", "<leader>g", ":Telescope live_grep<CR>", { silent = true })
-map("n", "<leader>/", "<cmd>Telescope current_buffer_fuzzy_find<CR>", { silent = true, desc = "Search current buffer" })
+require("writer.keyboard").setup()
 
-vim.keymap.set("n", "<leader>z", ":ZenMode<CR>:Limelight<CR>", { silent = true })
+local zen = require("zen-mode")
+local focus_active = false
+zen.setup({
+  window = { width = 88 },
+  on_open = function()
+    focus_active = true
+    vim.cmd("Limelight")
+  end,
+  on_close = function()
+    focus_active = false
+    vim.cmd("Limelight!")
+  end,
+})
+vim.keymap.set("n", "<leader>z", function() zen.toggle() end, { desc = "Toggle writing focus" })
 
 vim.api.nvim_create_user_command("WordCount", function() local wc = vim.fn.wordcount().words print("Word count: " .. wc) end, {})
 
@@ -149,9 +144,9 @@ end, { nargs = 1 })
 
 vim.o.sessionoptions = "buffers,curdir,tabpages,winsize"
 require("auto-session").setup({
-  auto_save_enabled = true,
-  auto_restore_enabled = true,
-  auto_session_enable_last_session = true,
+  auto_save = true,
+  auto_restore = true,
+  auto_restore_last_session = true,
 })
 
 vim.opt.scrolloff = 999
@@ -159,13 +154,10 @@ vim.opt.scrolloff = 999
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "markdown",
   callback = function()
-    -- Uncounted movement follows wrapped rows; counts still address file lines.
-    map({ "n", "x" }, "j", function() return vim.v.count == 0 and "gj" or "j" end,
-      { buffer = true, expr = true, silent = true, desc = "Down wrapped row (file lines with count)" })
-    map({ "n", "x" }, "k", function() return vim.v.count == 0 and "gk" or "k" end,
-      { buffer = true, expr = true, silent = true, desc = "Up wrapped row (file lines with count)" })
-    map("n", "<leader>jt", "<cmd>Toc<CR>", { buffer = true, silent = true, desc = "Markdown table of contents" })
-    vim.cmd("ZenMode")
-    vim.cmd("Limelight")
+    vim.schedule(function()
+      if vim.bo.filetype == "markdown" and not focus_active then
+        zen.open()
+      end
+    end)
   end,
 })
